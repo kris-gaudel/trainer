@@ -1,0 +1,119 @@
+name: Publish Helm Charts
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - 'charts/**'
+      - '.github/workflows/publish-helm-charts.yaml'
+  workflow_dispatch:
+
+env:
+  CHARTS_PATH: charts
+  GHCR_REGISTRY: ghcr.io
+  GHCR_OWNER: kubeflow
+  GHCR_CHARTS_PATH: helm-charts
+
+permissions:
+  contents: write
+  packages: write
+  pages: write
+  id-token: write
+
+jobs:
+  prepare-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Prepare Helm charts matrix
+        id: set-matrix
+        run: |
+          CHARTS_PATHS=$(find ${{ env.CHARTS_PATH }} -mindepth 1 -maxdepth 1 -type d -exec basename {} \; | jq -R -s -c 'split("\n")[:-1]')
+          echo "matrix=$CHARTS_PATHS" >> $GITHUB_OUTPUT
+
+  build-and-publish:
+    needs: prepare-matrix
+    if: ${{ needs.prepare-matrix.outputs.matrix != '[]' && needs.prepare-matrix.outputs.matrix != '' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        chart: ${{ fromJson(needs.prepare-matrix.outputs.matrix) }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: v3.12.0
+
+      - name: Configure Git
+        run: |
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+
+      - name: Build Helm dependencies
+        run: helm dependency build
+        working-directory: ${{ env.CHARTS_PATH }}/${{ matrix.chart }}
+
+      - name: Lint Helm chart
+        run: helm lint
+        working-directory: ${{ env.CHARTS_PATH }}/${{ matrix.chart }}
+
+      - name: Package Helm chart
+        run: |
+          helm package .
+          CHART_VERSION=$(helm show chart . | grep '^version:' | awk '{print $2}')
+          echo "CHART_VERSION=$CHART_VERSION" >> $GITHUB_ENV
+        working-directory: ${{ env.CHARTS_PATH }}/${{ matrix.chart }}
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.GHCR_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push chart to GHCR
+        run: |
+          helm push ${{ matrix.chart }}-${{ env.CHART_VERSION }}.tgz oci://${{ env.GHCR_REGISTRY }}/${{ env.GHCR_OWNER }}/${{ env.GHCR_CHARTS_PATH }}
+        working-directory: ${{ env.CHARTS_PATH }}/${{ matrix.chart }}
+
+      - name: Download existing index
+        run: |
+          mkdir -p gh-pages
+          if [ -f "gh-pages/index.yaml" ]; then
+            cp gh-pages/index.yaml .
+          else
+            helm repo index .
+          fi
+
+      - name: Update index
+        run: |
+          helm repo index . --url https://${{ env.GHCR_OWNER }}.github.io/trainer --merge index.yaml
+          cp index.yaml gh-pages/
+
+      - name: Upload pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: gh-pages
+
+  deploy-pages:
+    needs: build-and-publish
+    if: ${{ needs.prepare-matrix.outputs.matrix != '[]' && needs.prepare-matrix.outputs.matrix != '' }}
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4 
