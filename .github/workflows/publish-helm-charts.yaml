@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - master
+      - feature/helm-ghcr-publish
     paths:
       - 'charts/**'
       - '.github/workflows/publish-helm-charts.yaml'
