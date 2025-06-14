@@ -1,0 +1,55 @@
+name: Publish Helm Chart
+
+on:
+  push:
+    branches:
+      - master
+      - 'release-*'
+    tags:
+      - 'v*'
+    paths:
+      - 'charts/kubeflow-trainer/**'
+  pull_request:
+    paths:
+      - 'charts/kubeflow-trainer/**'
+
+jobs:
+  publish:
+    name: Publish Helm Chart
+    runs-on: ubuntu-latest
+    env:
+      SHOULD_PUBLISH: ${{ github.event_name == 'push' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure Git
+        run: |
+          git config user.name "$GITHUB_ACTOR"
+          git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
+
+      - name: Run chart-releaser
+        uses: helm/chart-releaser-action@v1.6.0
+        env:
+          CR_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+        with:
+          charts_dir: charts
+          config: cr.yaml
+
+      - name: Login to GHCR
+        if: env.SHOULD_PUBLISH == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Package and Push Helm Chart
+        if: env.SHOULD_PUBLISH == 'true'
+        run: |
+          # Package the chart
+          helm package charts/kubeflow-trainer --version ${{ github.ref_name }}
+          
+          # Push to GHCR
+          helm push kubeflow-trainer-${{ github.ref_name }}.tgz oci://ghcr.io/${{ github.repository_owner }}/helm-charts 
