@@ -50,3 +50,6 @@ maintainers:
   url: https://github.com/tenzen-y
 - name: terrytangyuan
   url: https://github.com/terrytangyuan
+
+env:
+  GHCR_OWNER: kris-gaudel
