@@ -24,11 +24,11 @@ version: 2.0.0
 
 type: application
 
-dependencies:
-- name: jobset
-  repository: oci://us-central1-docker.pkg.dev/k8s-staging-images/charts
-  version: v0.8.0
-  condition: jobset.install
+# dependencies:
+# - name: jobset
+#   repository: oci://us-central1-docker.pkg.dev/k8s-staging-images/charts
+#   version: v0.8.0
+#   condition: jobset.install
 
 keywords:
 - kubeflow trainer
