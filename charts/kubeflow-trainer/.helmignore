@@ -38,3 +38,5 @@ README.md.gotmpl
 
 # MacOS
 .DS_Store
+
+crds/
