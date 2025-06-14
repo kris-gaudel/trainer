@@ -1,105 +1,87 @@
-# kubeflow-trainer
+# Kubeflow Trainer Helm Chart
 
-![Version: 2.0.0](https://img.shields.io/badge/Version-2.0.0-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square)
-
-A Helm chart for deploying Kubeflow Trainer on Kubernetes.
-
-**Homepage:** <https://github.com/kubeflow/trainer>
-
-## Introduction
-
-This chart bootstraps a [Kubernetes Trainer](https://github.com/kubeflow/trainer) deployment using the [Helm](https://helm.sh) package manager.
+This Helm chart deploys Kubeflow Trainer on Kubernetes.
 
 ## Prerequisites
 
-- Helm >= 3
-- Kubernetes >= 1.29
+- kubectl configured to communicate with your cluster
 
-## Usage
+## Installation
 
-### Add Helm Repo
-
-```bash
-helm repo add kubeflow-trainer https://kubeflow.github.io/trainer
-
-helm repo update
-```
-
-See [helm repo](https://helm.sh/docs/helm/helm_repo) for command documentation.
-
-### Install the chart
+### Method 1: Direct OCI Installation
 
 ```bash
-helm install [RELEASE_NAME] kubeflow-trainer/kubeflow-trainer
-```
-
-For example, if you want to create a release with name `kubeflow-trainer` in the `kubeflow-system` namespace:
-
-```shell
-helm upgrade kubeflow-trainer kubeflow-trainer/kubeflow-trainer \
-    --install \
+helm install kubeflow-trainer oci://ghcr.io/kubeflow/helm-charts/kubeflow-trainer \
+    --version 2.0.0 \
     --namespace kubeflow-system \
     --create-namespace
 ```
 
-Note that by passing the `--create-namespace` flag to the `helm install` command, `helm` will create the release namespace if it does not exist.
-If you have already installed jobset controller/webhook, you can skip installing it by adding `--set jobset.install=false` to the command arguments.
+### Method 2: Using Helm Repository
 
-See [helm install](https://helm.sh/docs/helm/helm_install) for command documentation.
+```bash
+# Add the Helm repository
+helm repo add kubeflow-trainer https://kubeflow.github.io/trainer
 
-### Upgrade the chart
+# Update the repository
+helm repo update
 
-```shell
-helm upgrade [RELEASE_NAME] kubeflow-trainer/kubeflow-trainer [flags]
+# Install the chart
+helm install kubeflow-trainer kubeflow-trainer/kubeflow-trainer \
+    --version 2.0.0 \
+    --namespace kubeflow-system \
+    --create-namespace
 ```
 
-See [helm upgrade](https://helm.sh/docs/helm/helm_upgrade) for command documentation.
+## Configuration
 
-### Uninstall the chart
+The following table lists the configurable parameters of the kubeflow-trainer chart and their default values.
 
-```shell
-helm uninstall [RELEASE_NAME]
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `nameOverride` | String to partially override release name | `""` |
+| `fullnameOverride` | String to fully override release name | `""` |
+| `jobset.install` | Whether to install jobset as a dependency | `true` |
+| `image.registry` | Image registry | `"docker.io"` |
+| `image.repository` | Image repository | `"kubeflow/trainer-controller-manager"` |
+| `image.tag` | Image tag | Chart version |
+| `image.pullPolicy` | Image pull policy | `"IfNotPresent"` |
+| `manager.replicas` | Number of replicas of manager | `1` |
+| `manager.resources` | Pod resource requests and limits | `{}` |
+
+For more configuration options, please refer to the [values.yaml](values.yaml) file.
+
+## Uninstalling the Chart
+
+To uninstall/delete the deployment:
+
+```bash
+helm uninstall kubeflow-trainer -n kubeflow-system
 ```
 
-This removes all the Kubernetes resources associated with the chart and deletes the release, except for the `crds`, those will have to be removed manually.
+## Troubleshooting
 
-See [helm uninstall](https://helm.sh/docs/helm/helm_uninstall) for command documentation.
+If you encounter any issues during installation:
 
-## Values
+1. Check the pod status:
+   ```bash
+   kubectl get pods -n kubeflow-system
+   ```
 
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| nameOverride | string | `""` | String to partially override release name. |
-| fullnameOverride | string | `""` | String to fully override release name. |
-| jobset.install | bool | `true` | Whether to install jobset as a dependency managed by trainer. This must be set to `false` if jobset controller/webhook has already been installed into the cluster. |
-| commonLabels | object | `{}` | Common labels to add to the resources. |
-| image.registry | string | `"ghcr.io"` | Image registry. |
-| image.repository | string | `"kubeflow/trainer/trainer-controller-manager"` | Image repository. |
-| image.tag | string | `"latest"` | Image tag. |
-| image.pullPolicy | string | `"IfNotPresent"` | Image pull policy. |
-| image.pullSecrets | list | `[]` | Image pull secrets for private image registry. |
-| manager.replicas | int | `1` | Number of replicas of manager. |
-| manager.labels | object | `{}` | Extra labels for manager pods. |
-| manager.annotations | object | `{}` | Extra annotations for manager pods. |
-| manager.volumes | list | `[]` | Volumes for manager pods. |
-| manager.nodeSelector | object | `{}` | Node selector for manager pods. |
-| manager.affinity | object | `{}` | Affinity for manager pods. |
-| manager.tolerations | list | `[]` | List of node taints to tolerate for manager pods. |
-| manager.env | list | `[]` | Environment variables for manager containers. |
-| manager.envFrom | list | `[]` | Environment variable sources for manager containers. |
-| manager.volumeMounts | list | `[]` | Volume mounts for manager containers. |
-| manager.resources | object | `{}` | Pod resource requests and limits for manager containers. |
-| manager.securityContext | object | `{}` | Security context for manager containers. |
-| webhook.failurePolicy | string | `"Fail"` | Specifies how unrecognized errors are handled. Available options are `Ignore` or `Fail`. |
+2. Check the pod logs:
+   ```bash
+   kubectl logs -n kubeflow-system -l app.kubernetes.io/name=kubeflow-trainer
+   ```
 
-## Maintainers
+3. Verify the Helm release:
+   ```bash
+   helm list -n kubeflow-system
+   ```
 
-| Name | Url |
-| ---- | --- |
-| andreyvelich | <https://github.com/andreyvelich> |
-| ChenYi015 | <https://github.com/ChenYi015> |
-| gaocegege | <https://github.com/gaocegege> |
-| Jeffwan | <https://github.com/Jeffwan> |
-| johnugeorge | <https://github.com/johnugeorge> |
-| tenzen-y | <https://github.com/tenzen-y> |
-| terrytangyuan | <https://github.com/terrytangyuan> |
+## Contributing
+
+Please refer to the [contributing guide](../../CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
+
+## License
+
+This project is licensed under the Apache License 2.0 - see the [LICENSE](../../LICENSE) file for details.
